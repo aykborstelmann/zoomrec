@@ -258,7 +258,7 @@ def join_meeting_url():
     time.sleep(2)
 
     return check_error()
-    
+
 
 def check_error():
     # Sometimes invalid id error is displayed
@@ -354,7 +354,8 @@ def unmute(description):
     except TypeError:
         logging.error("Could not unmute!")
         if DEBUG:
-            pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(TIME_FORMAT) + "-" + description) + "_unmute_error.png")
+            pyautogui.screenshot(
+                os.path.join(DEBUG_PATH, time.strftime(TIME_FORMAT) + "-" + description) + "_unmute_error.png")
         return False
 
 
@@ -368,7 +369,8 @@ def mute(description):
     except TypeError:
         logging.error("Could not mute!")
         if DEBUG:
-            pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(TIME_FORMAT) + "-" + description) + "_mute_error.png")
+            pyautogui.screenshot(
+                os.path.join(DEBUG_PATH, time.strftime(TIME_FORMAT) + "-" + description) + "_mute_error.png")
         return False
 
 
@@ -412,7 +414,7 @@ def join(meet_id, meet_pw, duration, description):
         zoom = subprocess.Popen(f'zoom --url="{meet_id}"', stdout=subprocess.PIPE,
                                 shell=True, preexec_fn=os.setsid)
         img_name = 'join.png'
-    
+
     # Wait while zoom process is there
     list_of_process_ids = find_process_id_by_name('zoom')
     while len(list_of_process_ids) <= 0:
@@ -775,16 +777,17 @@ def join(meet_id, meet_pw, duration, description):
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_ok_error.png")
 
+
 def play_audio(description):
     # Get all files in audio directory
-    files=os.listdir(AUDIO_PATH)
+    files = os.listdir(AUDIO_PATH)
     # Filter .wav files
-    files=list(filter(lambda f: f.endswith(".wav"), files))
+    files = list(filter(lambda f: f.endswith(".wav"), files))
     # Check if .wav files available
     if len(files) > 0:
         unmute(description)
         # Get random file
-        file=random.choice(files)
+        file = random.choice(files)
         path = os.path.join(AUDIO_PATH, file)
         # Use paplay to play .wav file on specific Output
         command = "/usr/bin/paplay --device=microphone -p " + path
@@ -829,23 +832,23 @@ def join_ongoing_meeting():
                 start_time = start_date.time()
 
                 end_date = start_date + \
-                    timedelta(seconds=int(row["duration"]) * 60 + 300)  # Add 5 minutes
+                           timedelta(seconds=int(row["duration"]) * 60 + 300)  # Add 5 minutes
                 end_time = end_date.time()
 
                 recent_duration = (end_date - curr_date).total_seconds()
 
                 if start_time < end_time:
                     if start_time <= curr_time <= end_time and str(row["record"]) == 'true':
-                            logging.info(
-                                "Join meeting that is currently running..")
-                            join(meet_id=row["id"], meet_pw=row["password"],
-                                 duration=recent_duration, description=row["description"])
+                        logging.info(
+                            "Join meeting that is currently running..")
+                        join(meet_id=row["id"], meet_pw=row["password"],
+                             duration=recent_duration, description=row["description"])
                 else:  # crosses midnight
                     if curr_time >= start_time or curr_time <= end_time and str(row["record"]) == 'true':
-                            logging.info(
-                                "Join meeting that is currently running..")
-                            join(meet_id=row["id"], meet_pw=row["password"],
-                                 duration=recent_duration, description=row["description"])
+                        logging.info(
+                            "Join meeting that is currently running..")
+                        join(meet_id=row["id"], meet_pw=row["password"],
+                             duration=recent_duration, description=row["description"])
 
 
 def setup_schedule():
@@ -854,16 +857,12 @@ def setup_schedule():
         line_count = 0
         for row in csv_reader:
             if str(row["record"]) == 'true':
-                cmd_string = "schedule.every()." + row["weekday"] \
-                             + ".at(\"" \
-                             + (datetime.strptime(row["time"], '%H:%M') - timedelta(minutes=1)).strftime('%H:%M') \
-                             + "\").do(join, meet_id=\"" + row["id"] \
-                             + "\", meet_pw=\"" + row["password"] \
-                             + "\", duration=" + str(int(row["duration"]) * 60) \
-                             + ", description=\"" + row["description"] + "\")"
+                start_time = (datetime.strptime(row["time"], '%H:%M') - timedelta(minutes=1)).strftime('%H:%M')
+                getattr(schedule.every(), row["weekday"]) \
+                    .at(start_time) \
+                    .do(join, meet_id=row["id"], meet_pw=row["password"], duration=str(int(row["duration"]) * 60),
+                        description=row["description"])
 
-                cmd = compile(cmd_string, "<string>", "eval")
-                eval(cmd)
                 line_count += 1
         logging.info("Added %s meetings to schedule." % line_count)
 

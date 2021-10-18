@@ -6,6 +6,7 @@ import schedule
 import time
 from datetime import datetime, timedelta
 
+from config import parse_config, Config
 from join import join
 
 global ONGOING_MEETING
@@ -19,7 +20,7 @@ DEBUG = True if os.getenv('DEBUG') == 'True' else False
 
 # Get vars
 BASE_PATH = os.getenv('HOME')
-CSV_PATH = os.path.join(BASE_PATH, "meetings.csv")
+CONFIG_PATH = os.path.join(BASE_PATH, "config.yml")
 IMG_PATH = os.path.join(BASE_PATH, "img")
 REC_PATH = os.path.join(BASE_PATH, "recordings")
 DEBUG_PATH = os.path.join(REC_PATH, "screenshots")
@@ -55,56 +56,49 @@ TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 CSV_DELIMITER = ';'
 
 
-def setup_schedule():
-    with open(CSV_PATH, mode='r') as csv_file:
-        csv_reader = csv.DictReader(csv_file, delimiter=CSV_DELIMITER)
-        line_count = 0
-        for row in csv_reader:
-            if str(row["record"]) == 'true':
-                start_time = (datetime.strptime(row["time"], '%H:%M') - timedelta(minutes=1)).strftime('%H:%M')
-                getattr(schedule.every(), row["weekday"]) \
-                    .at(start_time) \
-                    .do(join, meet_id=row["id"], meet_pw=row["password"], duration=str(int(row["duration"]) * 60),
-                        description=row["description"])
+def setup_schedule(config: Config):
+    for meeting in config.meetings:
+        start_time = (datetime.strptime(meeting.time, '%H:%M') - timedelta(minutes=1)).strftime('%H:%M')
+        getattr(schedule.every(), meeting.day) \
+            .at(start_time) \
+            .do(join, meet_id=meeting.id, meet_pw=meeting.password, duration=str(int(meeting.duration) * 60),
+                description=meeting.description)
 
-                line_count += 1
-        logging.info("Added %s meetings to schedule." % line_count)
+    logging.info("Added %s meetings to schedule." % len(config.meetings))
 
 
-def join_ongoing_meeting():
-    with open(CSV_PATH, mode='r') as csv_file:
-        csv_reader = csv.DictReader(csv_file, delimiter=CSV_DELIMITER)
-        for row in csv_reader:
-            # Check and join ongoing meeting
-            curr_date = datetime.now()
+def join_ongoing_meeting(config: Config):
+    for meeting in config.meetings:
 
-            # Monday, tuesday, ..
-            if row["weekday"].lower() == curr_date.strftime('%A').lower():
-                curr_time = curr_date.time()
+        # Check and join ongoing meeting
+        curr_date = datetime.now()
 
-                start_time_csv = datetime.strptime(row["time"], '%H:%M')
-                start_date = curr_date.replace(
-                    hour=start_time_csv.hour, minute=start_time_csv.minute)
-                start_time = start_date.time()
+        # Monday, tuesday, ..
+        if meeting.day.lower() == curr_date.strftime('%A').lower():
+            curr_time = curr_date.time()
 
-                end_date = start_date + \
-                           timedelta(seconds=int(row["duration"]) * 60 + 300)  # Add 5 minutes
-                end_time = end_date.time()
+            start_time_csv = datetime.strptime(meeting.time, '%H:%M')
+            start_date = curr_date.replace(
+                hour=start_time_csv.hour, minute=start_time_csv.minute)
+            start_time = start_date.time()
 
-                recent_duration = (end_date - curr_date).total_seconds()
+            end_date = start_date + timedelta(seconds=int(meeting.duration) * 60 + 300)  # Add 5 minutes
+            end_time = end_date.time()
 
-                if start_time < end_time:
-                    if start_time <= curr_time <= end_time and str(row["record"]) == 'true':
-                        logging.info(
-                            "Join meeting that is currently running..")
-                        join(meet_id=row["id"], meet_pw=row["password"],
-                             duration=recent_duration, description=row["description"])
-                else:  # crosses midnight
-                    if curr_time >= start_time or curr_time <= end_time and str(row["record"]) == 'true':
-                        logging.info(
-                            "Join meeting that is currently running..")
-                        join(meet_id=row["id"], meet_pw=row["password"],
-                             duration=recent_duration, description=row["description"])
+            recent_duration = (end_date - curr_date).total_seconds()
+
+            if start_time < end_time:
+                if start_time <= curr_time <= end_time:
+                    logging.info(
+                        "Join meeting that is currently running..")
+                    join(meet_id=meeting.id, meet_pw=meeting.password,
+                         duration=recent_duration, description=meeting.description)
+            else:  # crosses midnight
+                if curr_time >= start_time or curr_time <= end_time:
+                    logging.info(
+                        "Join meeting that is currently running..")
+                    join(meet_id=meeting.id, meet_pw=meeting.password,
+                         duration=recent_duration, description=meeting.description)
 
 
 def main():
@@ -115,8 +109,10 @@ def main():
         logging.error("Failed to create screenshot folder!")
         raise
 
-    setup_schedule()
-    join_ongoing_meeting()
+    config = parse_config(CONFIG_PATH)
+
+    setup_schedule(config)
+    join_ongoing_meeting(config)
 
 
 if __name__ == '__main__':

@@ -15,14 +15,14 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(True, config.compromise)
         self.assertEqual(2, len(config.meetings))
 
-        self.assertEqual('https://zoom.us/j/94783345143?pwd=bitxbmJwMnBNUmU3SExrY3VlUWhuZz09', config.meetings[0].link)
+        self.assertEqual('https://zoom.us/j/111111111111?pwd=741699', config.meetings[0].link)
         self.assertEqual('Test', config.meetings[0].description)
         self.assertEqual('monday', config.meetings[0].day)
-        self.assertEqual('10:85', config.meetings[0].time)
+        self.assertEqual('19:22', config.meetings[0].time)
         self.assertEqual(5, config.meetings[0].duration)
 
-        self.assertEqual('94783345143', config.meetings[1].id)
-        self.assertEqual('bitxbmJwMnBNUmU3SExrY3VlUWhuZz09', config.meetings[1].password)
+        self.assertEqual('111111111111', config.meetings[1].id)
+        self.assertEqual('741699', config.meetings[1].password)
         self.assertEqual('Other Test', config.meetings[1].description)
         self.assertEqual('monday', config.meetings[1].day)
         self.assertEqual('0:05', config.meetings[1].time)

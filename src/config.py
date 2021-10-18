@@ -11,13 +11,13 @@ class Config(yaml.YAMLObject):
 
 class Meeting:
     def __init__(self):
-        self.description = None
-        self.link = None
-        self.id = None
-        self.password = None
-        self.duration = None
-        self.day = None
-        self.time = None
+        self.description: str = None
+        self.link: str = None
+        self.id: str = None
+        self.password: str = None
+        self.duration: int = None
+        self.day: str = None
+        self.time: str = None
 
 
 def parse_meeting(meeting_load) -> Meeting:
@@ -30,10 +30,11 @@ def parse_meeting(meeting_load) -> Meeting:
         meeting.id = str(meeting_load['id'])
 
     if 'password' in meeting_load:
-        meeting.password = meeting_load['password']
+        meeting.password = str(meeting_load['password'])
 
     if 'link' in meeting_load:
         meeting.link = meeting_load['link']
+        meeting.id = meeting_load['link']
 
     if 'day' in meeting_load:
         meeting.day = meeting_load['day']
@@ -41,10 +42,6 @@ def parse_meeting(meeting_load) -> Meeting:
     if 'time' in meeting_load:
         if type(meeting_load['time']) is str:
             meeting.time = meeting_load['time']
-        else:
-            loaded_time = str(meeting_load['time'])
-            if len(loaded_time) == 4:
-                meeting.time = f'{loaded_time[:-2]}:{loaded_time[-2:]}'
 
     if 'duration' in meeting_load:
         meeting.duration = meeting_load['duration']

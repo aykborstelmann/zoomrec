@@ -10,6 +10,7 @@ schedule = "*"
 testresources = "*"
 opencv-python = "*"
 pillow = "8.1.0"
+pyyaml = "*"
 
 [dev-packages]
 

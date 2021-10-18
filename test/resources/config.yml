@@ -1,0 +1,13 @@
+compromise: true
+meetings:
+  - description: Test
+    link: https://zoom.us/j/111111111111?pwd=741699
+    day: monday
+    time: 18:05
+    duration: 5
+  - description: Other Test
+    id: 111111111111
+    password: 741699
+    day: monday
+    time: 0:05
+    duration: 5

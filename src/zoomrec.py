@@ -54,9 +54,6 @@ NAME_LIST = [
 TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 CSV_DELIMITER = ';'
 
-ONGOING_MEETING = False
-VIDEO_PANEL_HIDED = False
-
 
 def setup_schedule():
     with open(CSV_PATH, mode='r') as csv_file:

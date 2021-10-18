@@ -41,6 +41,10 @@ NAME_LIST = [
 
 TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 
+ONGOING_MEETING = False
+VIDEO_PANEL_HIDED = False
+
+
 def join(meet_id, meet_pw, duration, description):
     global VIDEO_PANEL_HIDED
     ffmpeg_debug = None
@@ -48,38 +52,18 @@ def join(meet_id, meet_pw, duration, description):
     logging.info("Join meeting: " + description)
 
     if DEBUG:
-        # Start recording
-        width, height = pyautogui.size()
-        resolution = str(width) + 'x' + str(height)
-        disp = os.getenv('DISPLAY')
+        ffmpeg_debug = start_debug_recording(description)
 
-        logging.info("Start recording..")
-
-        filename = os.path.join(
-            REC_PATH, time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv"
-
-        command = "ffmpeg -nostats -loglevel quiet -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + resolution + " -i " + \
-                  disp + " -acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0 -threads 0 -async 1 -vsync 1 " + filename
-
-        ffmpeg_debug = subprocess.Popen(
-            command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
-        atexit.register(os.killpg, os.getpgid(
-            ffmpeg_debug.pid), signal.SIGQUIT)
-
-    # Exit Zoom if running
     exit_process_by_name("zoom")
 
     join_by_url = meet_id.startswith('https://') or meet_id.startswith('http://')
-
     if not join_by_url:
         # Start Zoom
-        zoom = subprocess.Popen("zoom", stdout=subprocess.PIPE,
-                                shell=True, preexec_fn=os.setsid)
+        zoom = subprocess.Popen("zoom", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
         img_name = 'join_meeting.png'
     else:
         logging.info("Starting zoom with url")
-        zoom = subprocess.Popen(f'zoom --url="{meet_id}"', stdout=subprocess.PIPE,
-                                shell=True, preexec_fn=os.setsid)
+        zoom = subprocess.Popen(f'zoom --url="{meet_id}"', stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
         img_name = 'join.png'
 
     # Wait while zoom process is there
@@ -105,10 +89,10 @@ def join(meet_id, meet_pw, duration, description):
 
     if not joined:
         logging.error("Failed to join meeting!")
-        os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
+        kill_process(zoom)
         if DEBUG and ffmpeg_debug is not None:
             # closing ffmpeg
-            os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
+            kill_process(ffmpeg_debug)
             atexit.unregister(os.killpg)
         return
 
@@ -131,8 +115,8 @@ def join(meet_id, meet_pw, duration, description):
     time.sleep(2)
 
     # Check if waiting for host
-    if pyautogui.locateCenterOnScreen(os.path.join(
-            IMG_PATH, 'wait_for_host.png'), confidence=0.9, minSearchTime=3) is not None:
+    wait_for_host_image = os.path.join(IMG_PATH, 'wait_for_host.png')
+    if pyautogui.locateCenterOnScreen(wait_for_host_image, confidence=0.9, minSearchTime=3) is not None:
         meeting_started = False
         logging.info("Please wait for the host to start this meeting.")
 
@@ -142,14 +126,13 @@ def join(meet_id, meet_pw, duration, description):
         if (datetime.now() - start_date).total_seconds() > duration:
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
-            os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
+            kill_process(zoom)
             if DEBUG:
-                os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
+                kill_process(ffmpeg_debug)
                 atexit.unregister(os.killpg)
             return
 
-        if pyautogui.locateCenterOnScreen(os.path.join(
-                IMG_PATH, 'wait_for_host.png'), confidence=0.9) is None:
+        if pyautogui.locateCenterOnScreen(wait_for_host_image, confidence=0.9) is None:
             logging.info("Maybe meeting was started now.")
             check_periods += 1
             if check_periods >= 2:
@@ -168,25 +151,26 @@ def join(meet_id, meet_pw, duration, description):
     time.sleep(2)
 
     # Check if joined into waiting room
-    if pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, 'waiting_room.png'), confidence=0.9,
-                                      minSearchTime=3) is not None:
+    waiting_room_image = os.path.join(IMG_PATH, 'waiting_room.png')
+    if pyautogui.locateCenterOnScreen(waiting_room_image, confidence=0.9, minSearchTime=3) is not None:
         in_waitingroom = True
         logging.info("Please wait, the meeting host will let you in soon..")
 
     # Wait while host will let you in
     # Exit when meeting ends after time
     while in_waitingroom:
-        if (datetime.now() - start_date).total_seconds() > duration:
+        is_meeting_ended = (datetime.now() - start_date).total_seconds() > duration
+        if is_meeting_ended:
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
-            os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
+            kill_process(zoom)
             if DEBUG:
-                os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
+                kill_process(ffmpeg_debug)
                 atexit.unregister(os.killpg)
             return
 
-        if pyautogui.locateCenterOnScreen(os.path.join(
-                IMG_PATH, 'waiting_room.png'), confidence=0.9) is None:
+        found_waiting_room_image = pyautogui.locateCenterOnScreen(waiting_room_image, confidence=0.9) is None
+        if found_waiting_room_image:
             logging.info("Maybe no longer in the waiting room..")
             check_periods += 1
             if check_periods == 2:
@@ -243,9 +227,9 @@ def join(meet_id, meet_pw, duration, description):
     time.sleep(2)
     if not join_audio(description):
         logging.info("Exit!")
-        os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
+        kill_process(zoom)
         if DEBUG:
-            os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
+            kill_process(ffmpeg_debug)
             atexit.unregister(os.killpg)
         time.sleep(2)
         join(meet_id, meet_pw, duration, description)
@@ -384,7 +368,7 @@ def join(meet_id, meet_pw, duration, description):
     pyautogui.click(0, 0)
 
     if DEBUG and ffmpeg_debug is not None:
-        os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
+        kill_process(ffmpeg_debug)
         atexit.unregister(os.killpg)
 
     # Audio
@@ -401,11 +385,9 @@ def join(meet_id, meet_pw, duration, description):
     command = "ffmpeg -nostats -loglevel error -f pulse -ac 2 -i 1 -f x11grab -r 30 -s " + resolution + " -i " + \
               disp + " -acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0 -threads 0 -async 1 -vsync 1 " + filename
 
-    ffmpeg = subprocess.Popen(
-        command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+    ffmpeg = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
 
-    atexit.register(os.killpg, os.getpgid(
-        ffmpeg.pid), signal.SIGQUIT)
+    atexit.register(os.killpg, os.getpgid(ffmpeg.pid), signal.SIGQUIT)
 
     start_date = datetime.now()
     end_date = start_date + timedelta(seconds=duration + 300)  # Add 5 minutes
@@ -426,11 +408,11 @@ def join(meet_id, meet_pw, duration, description):
 
     # Close everything
     if DEBUG and ffmpeg_debug is not None:
-        os.killpg(os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
+        kill_process(ffmpeg_debug)
         atexit.unregister(os.killpg)
 
-    os.killpg(os.getpgid(zoom.pid), signal.SIGQUIT)
-    os.killpg(os.getpgid(ffmpeg.pid), signal.SIGQUIT)
+    kill_process(zoom)
+    kill_process(ffmpeg)
     atexit.unregister(os.killpg)
 
     if not ONGOING_MEETING:
@@ -443,6 +425,22 @@ def join(meet_id, meet_pw, duration, description):
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + description) + "_ok_error.png")
+
+
+def kill_process(debug):
+    os.killpg(os.getpgid(debug.pid), signal.SIGQUIT)
+
+
+def start_debug_recording(description):
+    width, height = pyautogui.size()
+    resolution = f'{str(width)}x{str(height)}'
+    disp = os.getenv('DISPLAY')
+    logging.info("Start recording..")
+    filename = os.path.join(REC_PATH, time.strftime(TIME_FORMAT)) + "-" + description + "-JOIN.mkv"
+    command = f"ffmpeg -nostats -loglevel quiet -f pulse -ac 2 -i 1 -f x11grab -r 30 -s {resolution} -i {disp} -acodec pcm_s16le -vcodec libx264rgb -preset ultrafast -crf 0 -threads 0 -async 1 -vsync 1 {filename}"
+    ffmpeg_debug = subprocess.Popen(command, stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+    atexit.register(os.killpg, os.getpgid(ffmpeg_debug.pid), signal.SIGQUIT)
+    return ffmpeg_debug
 
 
 def mute(description):
@@ -666,8 +664,7 @@ def join_meeting_url():
 def join_audio(description):
     audio_joined = False
     try:
-        x, y = pyautogui.locateCenterOnScreen(os.path.join(
-            IMG_PATH, 'join_with_computer_audio.png'), confidence=0.9)
+        x, y = pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, 'join_with_computer_audio.png'), confidence=0.9)
         logging.info("Join with computer audio..")
         pyautogui.click(x, y)
         audio_joined = True
@@ -681,8 +678,7 @@ def join_audio(description):
     if not audio_joined:
         try:
             show_toolbars()
-            x, y = pyautogui.locateCenterOnScreen(os.path.join(
-                IMG_PATH, 'join_audio.png'), confidence=0.9)
+            x, y = pyautogui.locateCenterOnScreen(os.path.join(IMG_PATH, 'join_audio.png'), confidence=0.9)
             pyautogui.click(x, y)
             join_audio(description)
         except TypeError:

@@ -15,7 +15,7 @@ ENV HOME=/home/zoomrec \
 RUN useradd -ms /bin/bash zoomrec -d ${HOME}
 WORKDIR ${HOME}
 
-ADD res/requirements.txt ${HOME}/res/requirements.txt
+COPY Pipfile* ${HOME}/
 
 # Install some tools
 RUN apt-get update && \
@@ -97,8 +97,9 @@ RUN apt-get update && \
         python3-tk \
         python3-dev \
         python3-setuptools \
+        pipenv \
         scrot && \
-    pip3 install --upgrade --no-cache-dir -r ${HOME}/res/requirements.txt && \
+    pipenv install --system && \
 # Install VLC - optional
     apt-get install --no-install-recommends -y vlc && \
 # Clean up

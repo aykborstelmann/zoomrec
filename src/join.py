@@ -11,6 +11,8 @@ from datetime import datetime, timedelta
 import psutil
 import pyautogui
 
+from config import Meeting
+
 DEBUG = True if os.getenv('DEBUG') == 'True' else False
 
 # Disable failsafe
@@ -45,25 +47,25 @@ ONGOING_MEETING = False
 VIDEO_PANEL_HIDED = False
 
 
-def join(meet_id, meet_pw, duration, description):
+def join(meeting: Meeting):
     global VIDEO_PANEL_HIDED
     ffmpeg_debug = None
 
-    logging.info("Join meeting: " + description)
+    logging.info("Join meeting: " + meeting.description)
 
     if DEBUG:
-        ffmpeg_debug = start_debug_recording(description)
+        ffmpeg_debug = start_debug_recording(meeting.description)
 
     exit_process_by_name("zoom")
 
-    join_by_url = meet_id.startswith('https://') or meet_id.startswith('http://')
+    join_by_url = meeting.link
     if not join_by_url:
         # Start Zoom
         zoom = subprocess.Popen("zoom", stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
         img_name = 'join_meeting.png'
     else:
         logging.info("Starting zoom with url")
-        zoom = subprocess.Popen(f'zoom --url="{meet_id}"', stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
+        zoom = subprocess.Popen(f'zoom --url="{meeting.link}"', stdout=subprocess.PIPE, shell=True, preexec_fn=os.setsid)
         img_name = 'join.png'
 
     # Wait while zoom process is there
@@ -82,7 +84,7 @@ def join(meet_id, meet_pw, duration, description):
     start_date = datetime.now()
 
     if not join_by_url:
-        joined = join_meeting_id(meet_id)
+        joined = join_meeting_id(meeting.id)
     else:
         time.sleep(2)
         joined = join_meeting_url()
@@ -97,16 +99,16 @@ def join(meet_id, meet_pw, duration, description):
         return
 
     # Check if connecting
-    check_connecting(zoom.pid, start_date, duration)
+    check_connecting(zoom.pid, start_date, meeting.duration)
 
     if not join_by_url:
-        pyautogui.write(meet_pw, interval=0.2)
+        pyautogui.write(meeting.password, interval=0.2)
         pyautogui.press('tab')
         pyautogui.press('space')
 
     # Joined meeting
     # Check if connecting
-    check_connecting(zoom.pid, start_date, duration)
+    check_connecting(zoom.pid, start_date, meeting.duration)
 
     # Check if meeting is started by host
     check_periods = 0
@@ -123,7 +125,7 @@ def join(meet_id, meet_pw, duration, description):
     # Wait for the host to start this meeting
     # Exit when meeting ends after time
     while not meeting_started:
-        if (datetime.now() - start_date).total_seconds() > duration:
+        if (datetime.now() - start_date).total_seconds() > meeting.duration * 60:
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
             kill_process(zoom)
@@ -142,7 +144,7 @@ def join(meet_id, meet_pw, duration, description):
         time.sleep(2)
 
     # Check if connecting
-    check_connecting(zoom.pid, start_date, duration)
+    check_connecting(zoom.pid, start_date, meeting.duration)
 
     # Check if in waiting room
     check_periods = 0
@@ -159,7 +161,7 @@ def join(meet_id, meet_pw, duration, description):
     # Wait while host will let you in
     # Exit when meeting ends after time
     while in_waitingroom:
-        is_meeting_ended = (datetime.now() - start_date).total_seconds() > duration
+        is_meeting_ended = (datetime.now() - start_date).total_seconds() > meeting.duration * 60
         if is_meeting_ended:
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
@@ -180,7 +182,7 @@ def join(meet_id, meet_pw, duration, description):
 
     # Meeting joined
     # Check if connecting
-    check_connecting(zoom.pid, start_date, duration)
+    check_connecting(zoom.pid, start_date, meeting.duration)
 
     logging.info("Joined meeting..")
 
@@ -213,30 +215,30 @@ def join(meet_id, meet_pw, duration, description):
                 logging.error("Could not exit poll results window!")
                 if DEBUG:
                     pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                        TIME_FORMAT) + "-" + description) + "_close_poll_results_error.png")
+                        TIME_FORMAT) + "-" + meeting.description) + "_close_poll_results_error.png")
         except TypeError:
             logging.error("Could not find poll results window anymore!")
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_find_poll_results_error.png")
+                    TIME_FORMAT) + "-" + meeting.description) + "_find_poll_results_error.png")
 
     # Start BackgroundThread
     BackgroundThread()
 
     # Set computer audio
     time.sleep(2)
-    if not join_audio(description):
+    if not join_audio(meeting.description):
         logging.info("Exit!")
         kill_process(zoom)
         if DEBUG:
             kill_process(ffmpeg_debug)
             atexit.unregister(os.killpg)
         time.sleep(2)
-        join(meet_id, meet_pw, duration, description)
+        join(meeting)
 
     # 'Say' something if path available (mounted)
     if os.path.exists(AUDIO_PATH):
-        play_audio(description)
+        play_audio(meeting.description)
 
     time.sleep(2)
     logging.info("Enter fullscreen..")
@@ -249,7 +251,7 @@ def join(meet_id, meet_pw, duration, description):
         logging.error("Could not find view!")
         if DEBUG:
             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                TIME_FORMAT) + "-" + description) + "_view_error.png")
+                TIME_FORMAT) + "-" + meeting.description) + "_view_error.png")
 
     time.sleep(2)
 
@@ -263,7 +265,7 @@ def join(meet_id, meet_pw, duration, description):
         logging.error("Could not find fullscreen!")
         if DEBUG:
             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                TIME_FORMAT) + "-" + description) + "_fullscreen_error.png")
+                TIME_FORMAT) + "-" + meeting.description) + "_fullscreen_error.png")
 
     # TODO: Check for 'Exit Full Screen': already fullscreen -> fullscreen = True
 
@@ -277,7 +279,7 @@ def join(meet_id, meet_pw, duration, description):
             logging.error("Could not find view options!")
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_view_options_error.png")
+                    TIME_FORMAT) + "-" + meeting.description) + "_view_options_error.png")
 
         # Switch to fullscreen
         time.sleep(2)
@@ -292,7 +294,7 @@ def join(meet_id, meet_pw, duration, description):
             logging.error("Could not enter fullscreen by image!")
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_enter_fullscreen_error.png")
+                    TIME_FORMAT) + "-" + meeting.description) + "_enter_fullscreen_error.png")
             return
 
         time.sleep(2)
@@ -308,7 +310,7 @@ def join(meet_id, meet_pw, duration, description):
         logging.error("Could not find view options!")
         if DEBUG:
             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                TIME_FORMAT) + "-" + description) + "_view_options_error.png")
+                TIME_FORMAT) + "-" + meeting.description) + "_view_options_error.png")
 
     time.sleep(2)
 
@@ -323,7 +325,7 @@ def join(meet_id, meet_pw, duration, description):
             logging.error("Could not hide video panel!")
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_hide_video_panel_error.png")
+                    TIME_FORMAT) + "-" + meeting.description) + "_hide_video_panel_error.png")
     else:
         # switch to speaker view
         show_toolbars()
@@ -337,7 +339,7 @@ def join(meet_id, meet_pw, duration, description):
             logging.error("Could not find view!")
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_view_error.png")
+                    TIME_FORMAT) + "-" + meeting.description) + "_view_error.png")
 
         time.sleep(2)
 
@@ -350,7 +352,7 @@ def join(meet_id, meet_pw, duration, description):
             logging.error("Could not switch speaker view!")
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_speaker_view_error.png")
+                    TIME_FORMAT) + "-" + meeting.description) + "_speaker_view_error.png")
 
         try:
             # minimize panel
@@ -361,7 +363,7 @@ def join(meet_id, meet_pw, duration, description):
             logging.error("Could not minimize panel!")
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_minimize_error.png")
+                    TIME_FORMAT) + "-" + meeting.description) + "_minimize_error.png")
 
     # Move mouse from screen
     pyautogui.moveTo(0, 0)
@@ -376,7 +378,7 @@ def join(meet_id, meet_pw, duration, description):
     logging.info("Start recording..")
 
     filename = os.path.join(REC_PATH, time.strftime(
-        TIME_FORMAT) + "-" + description) + ".mkv"
+        TIME_FORMAT) + "-" + meeting.description) + ".mkv"
 
     width, height = pyautogui.size()
     resolution = str(width) + 'x' + str(height)
@@ -390,10 +392,10 @@ def join(meet_id, meet_pw, duration, description):
     atexit.register(os.killpg, os.getpgid(ffmpeg.pid), signal.SIGQUIT)
 
     start_date = datetime.now()
-    end_date = start_date + timedelta(seconds=duration + 300)  # Add 5 minutes
+    end_date = start_date + timedelta(seconds=(meeting.duration * 60) + 300)  # Add 5 minutes
 
     # Start thread to check active screensharing
-    HideViewOptionsThread()
+    HideViewOptionsThread(description=meeting.description)
 
     meeting_running = True
     while meeting_running:
@@ -424,7 +426,7 @@ def join(meet_id, meet_pw, duration, description):
         except TypeError:
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                    TIME_FORMAT) + "-" + description) + "_ok_error.png")
+                    TIME_FORMAT) + "-" + meeting.description) + "_ok_error.png")
 
 
 def kill_process(debug):
@@ -499,7 +501,8 @@ class BackgroundThread:
 
 class HideViewOptionsThread:
 
-    def __init__(self, interval=10):
+    def __init__(self, description, interval=10):
+        self.description = description
         # Sleep interval between
         self.interval = interval
 
@@ -529,12 +532,12 @@ class HideViewOptionsThread:
                         logging.error("Could not exit poll results window!")
                         if DEBUG:
                             pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                                TIME_FORMAT) + "-" + description) + "_close_poll_results_error.png")
+                                TIME_FORMAT) + "-" + self.description) + "_close_poll_results_error.png")
                 except TypeError:
                     logging.error("Could not find poll results window anymore!")
                     if DEBUG:
                         pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
-                            TIME_FORMAT) + "-" + description) + "_find_poll_results_error.png")
+                            TIME_FORMAT) + "-" + self.description) + "_find_poll_results_error.png")
 
             # Check if view options available
             if pyautogui.locateOnScreen(os.path.join(IMG_PATH, 'view_options.png'), confidence=0.9) is not None:
@@ -582,7 +585,7 @@ def check_connecting(zoom_pid, start_date, duration):
     # Wait while connecting
     # Exit when meeting ends after time
     while connecting:
-        if (datetime.now() - start_date).total_seconds() > duration:
+        if (datetime.now() - start_date).total_seconds() > duration * 60:
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
             os.killpg(os.getpgid(zoom_pid), signal.SIGQUIT)

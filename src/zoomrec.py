@@ -61,8 +61,7 @@ def setup_schedule(config: Config):
         start_time = (datetime.strptime(meeting.time, '%H:%M') - timedelta(minutes=1)).strftime('%H:%M')
         getattr(schedule.every(), meeting.day) \
             .at(start_time) \
-            .do(join, meet_id=meeting.id, meet_pw=meeting.password, duration=str(int(meeting.duration) * 60),
-                description=meeting.description)
+            .do(join, meeting)
 
     logging.info("Added %s meetings to schedule." % len(config.meetings))
 
@@ -91,14 +90,12 @@ def join_ongoing_meeting(config: Config):
                 if start_time <= curr_time <= end_time:
                     logging.info(
                         "Join meeting that is currently running..")
-                    join(meet_id=meeting.id, meet_pw=meeting.password,
-                         duration=recent_duration, description=meeting.description)
+                    join(meeting)
             else:  # crosses midnight
                 if curr_time >= start_time or curr_time <= end_time:
                     logging.info(
                         "Join meeting that is currently running..")
-                    join(meet_id=meeting.id, meet_pw=meeting.password,
-                         duration=recent_duration, description=meeting.description)
+                    join(meeting)
 
 
 def main():

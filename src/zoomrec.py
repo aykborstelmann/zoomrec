@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 from config import parse_config, Config
 from join import join
+from taskmanagment import TaskManager
 
 global ONGOING_MEETING
 global VIDEO_PANEL_HIDED
@@ -107,18 +108,13 @@ def main():
         raise
 
     config = parse_config(CONFIG_PATH)
-
-    setup_schedule(config)
+    task_manager = TaskManager(config)
     join_ongoing_meeting(config)
+
+    while True:
+        task_manager.run()
+        time.sleep(1)
 
 
 if __name__ == '__main__':
     main()
-
-while True:
-    schedule.run_pending()
-    time.sleep(1)
-    time_of_next_run = schedule.next_run()
-    time_now = datetime.now()
-    remaining = time_of_next_run - time_now
-    print(f"Next meeting in {remaining}", end="\r", flush=True)

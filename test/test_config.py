@@ -7,12 +7,12 @@ class TestConfig(unittest.TestCase):
 
     def test_default_parse_config(self):
         config: Config = parse_config("resources/empty_config.yml")
-        self.assertEqual(False, config.compromise)
+        self.assertEqual(False, config.compress)
         self.assertEqual(0, len(config.meetings))
 
     def test_parse_config(self):
         config: Config = parse_config("resources/config.yml")
-        self.assertEqual(True, config.compromise)
+        self.assertEqual(True, config.compress)
         self.assertEqual(2, len(config.meetings))
 
         self.assertEqual('https://zoom.us/j/111111111111?pwd=741699', config.meetings[0].link)

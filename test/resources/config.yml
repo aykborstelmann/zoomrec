@@ -1,4 +1,4 @@
-compromise: true
+compress: true
 meetings:
   - description: Test
     link: https://zoom.us/j/111111111111?pwd=741699

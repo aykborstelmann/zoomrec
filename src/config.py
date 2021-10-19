@@ -6,7 +6,7 @@ import yaml
 class Config(yaml.YAMLObject):
     def __init__(self):
         self.meetings: List[Meeting] = []
-        self.compromise = False
+        self.compress = False
 
 
 class Meeting:
@@ -57,8 +57,8 @@ def parse_config(filename) -> Config:
         if not load:
             return config
 
-        if 'compromise' in load:
-            config.compromise = load['compromise']
+        if 'compress' in load:
+            config.compress = load['compress']
 
         if 'meetings' in load:
             for meeting_load in load['meetings']:

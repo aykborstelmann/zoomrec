@@ -228,7 +228,7 @@ def join(meeting: Meeting, seconds_remaining: float):
     BackgroundThread()
 
     # Set computer audio
-    time.sleep(2)
+    time.sleep(5)
     if not join_audio(meeting.description):
         logging.info("Exit!")
         kill_process(zoom)

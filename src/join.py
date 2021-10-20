@@ -13,6 +13,8 @@ import pyautogui
 
 from config import Meeting
 
+WAIT_AFTER_MEETING = 0
+
 DEBUG = True if os.getenv('DEBUG') == 'True' else False
 
 # Disable failsafe
@@ -234,7 +236,7 @@ def join(meeting: Meeting, seconds_remaining: float):
             kill_process(ffmpeg_debug)
             atexit.unregister(os.killpg)
         time.sleep(2)
-        join(meeting)
+        join(meeting, seconds_remaining)
 
     # 'Say' something if path available (mounted)
     if os.path.exists(AUDIO_PATH):
@@ -393,8 +395,8 @@ def join(meeting: Meeting, seconds_remaining: float):
 
     start_date = datetime.now()
     meeting_start_time = datetime.strptime(meeting.time, '%H:%M')
-    start_date.replace(hour=meeting_start_time.hour,minute=meeting_start_time.minute)
-    end_date = start_date + timedelta(seconds=seconds_remaining + 300)  # Add 5 minutes
+    start_date.replace(hour=meeting_start_time.hour, minute=meeting_start_time.minute)
+    end_date = start_date + timedelta(seconds=seconds_remaining + WAIT_AFTER_MEETING)  # Add 5 minutes
 
     # Start thread to check active screensharing
     HideViewOptionsThread(description=meeting.description)
@@ -405,7 +407,7 @@ def join(meeting: Meeting, seconds_remaining: float):
         if time_remaining.total_seconds() < 0 or not ONGOING_MEETING:
             meeting_running = False
         else:
-            logging.debug(f"Meeting ends in {time_remaining}")
+            logging.info(f"Meeting ends in {time_remaining}")
         time.sleep(5)
 
     logging.info("Meeting ends at %s" % datetime.now())
@@ -429,6 +431,8 @@ def join(meeting: Meeting, seconds_remaining: float):
             if DEBUG:
                 pyautogui.screenshot(os.path.join(DEBUG_PATH, time.strftime(
                     TIME_FORMAT) + "-" + meeting.description) + "_ok_error.png")
+
+    return filename
 
 
 def kill_process(debug):

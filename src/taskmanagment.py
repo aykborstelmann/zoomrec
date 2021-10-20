@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from schedule import Scheduler
 
+from compress import compress
 from config import Config, Meeting
 from join import join
 
@@ -20,6 +21,7 @@ class Job(ABC):
         result = self.run()
         self.done = True
         if result:
+            logging.info(result)
             self.successful = True
             if self.on_success and type(self.on_success) == FunctionType:
                 self.on_success(result)
@@ -36,15 +38,16 @@ class JoinMeetingJob(Job):
         self.seconds_remaining = seconds_remaining if seconds_remaining else self.meeting.duration
 
     def run(self):
-        join(self.meeting, self.seconds_remaining)
+        return join(self.meeting, self.seconds_remaining)
 
 
 class CompressJob(Job):
     def __init__(self, filename):
         super().__init__()
+        self.filename = filename
 
     def run(self):
-        pass
+        return compress(self.filename)
 
 
 class TaskManager:
@@ -62,6 +65,7 @@ class TaskManager:
             getattr(self.scheduler.every(), meeting.day) \
                 .at(start_time) \
                 .do(self.enqueue_meeting_and_follow_up, meeting)
+
         self.log.info(f"Setup {len(config.meetings)} meeting/s")
 
     def append_meeting_if_running(self, meeting):
@@ -71,20 +75,20 @@ class TaskManager:
             start_time_from_config = datetime.strptime(meeting.time, '%H:%M')
             start_date = current_date.replace(hour=start_time_from_config.hour, minute=start_time_from_config.minute)
 
-            end_date = start_date + timedelta(seconds=int(meeting.duration) * 60)  # Add 5 minutes
+            end_date = start_date + timedelta(seconds=int(meeting.duration) * 60)
             seconds_remaining = (end_date - current_date).total_seconds()
 
             meeting_is_running = start_date <= current_date <= end_date
             if meeting_is_running:
                 logging.info("Join meeting that is currently running..")
+                self.enqueue_meeting_and_follow_up(meeting, seconds_remaining=seconds_remaining)
 
-                self.queue.append(JoinMeetingJob(meeting, seconds_remaining))
-
-    def enqueue_meeting_and_follow_up(self, meeting):
-        join_meeting_job = JoinMeetingJob(meeting)
+    def enqueue_meeting_and_follow_up(self, meeting, seconds_remaining=None):
+        join_meeting_job = JoinMeetingJob(meeting, seconds_remaining)
 
         if self.config.compress:
             def on_success(filename):
+                logging.info(f"Successful executed {filename}")
                 self.queue.append(CompressJob(filename))
 
             join_meeting_job.on_success = on_success
@@ -102,4 +106,4 @@ class TaskManager:
             time_of_next_run = self.scheduler.next_run
             time_now = datetime.now()
             remaining = time_of_next_run - time_now
-            print(f"Next meeting in {remaining}", end="\r", flush=True)
+            logging.info(f"Next meeting in {remaining}")

@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 import logging
 from types import FunctionType
-from typing import List, Optional
+from typing import List, Optional, Callable
 
 from schedule import Scheduler
 
@@ -15,16 +15,15 @@ class Job(ABC):
     def __init__(self):
         self.successful = False
         self.done = False
-        self.on_success: Optional[FunctionType] = None
+        self.result = None
+        self.on_success: Optional[Callable[[Job], Optional[List[Job]]]] = None
 
     def start(self):
-        result = self.run()
+        self.result = self.run()
         self.done = True
-        if result:
-            logging.info(result)
+        if self.result:
+            logging.info(self.result)
             self.successful = True
-            if self.on_success and type(self.on_success) == FunctionType:
-                self.on_success(result)
 
     @abstractmethod
     def run(self):
@@ -85,9 +84,9 @@ class TaskManager:
         join_meeting_job = JoinMeetingJob(meeting)
 
         if self.config.compress:
-            def on_success(filename):
-                logging.info(f"Successful executed {filename}")
-                self.queue.append(CompressJob(filename))
+            def on_success(job: Job):
+                logging.info(f"Successful executed {job.result}")
+                return [CompressJob(job.result)]
 
             join_meeting_job.on_success = on_success
 
@@ -100,9 +99,19 @@ class TaskManager:
             self.log.debug("Queue not empty, executing first job")
             job = self.queue.pop()
             job.start()
+            if job.successful and type(job.on_success) == FunctionType:
+                new_jobs = job.on_success(job)
+                self.enqueue_if_types_match(new_jobs)
+
         elif datetime.now() - self.last_log > timedelta(minutes=10):
             self.last_log = datetime.now()
             time_of_next_run = self.scheduler.next_run
             time_now = datetime.now()
             remaining = time_of_next_run - time_now
             logging.info(f"Next meeting in {remaining}")
+
+    def enqueue_if_types_match(self, new_jobs):
+        if type(new_jobs) == list:
+            for job in new_jobs:
+                if isinstance(job, Job):
+                    self.queue.append(job)

@@ -28,7 +28,7 @@ DEBUG_PATH = os.path.join(REC_PATH, "screenshots")
 
 formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
 root_logger = logging.getLogger()
-root_logger.setLevel(logging.INFO)
+root_logger.setLevel(logging.DEBUG)
 
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)
@@ -57,48 +57,6 @@ TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
 CSV_DELIMITER = ';'
 
 
-def setup_schedule(config: Config):
-    for meeting in config.meetings:
-        start_time = (datetime.strptime(meeting.time, '%H:%M') - timedelta(minutes=1)).strftime('%H:%M')
-        getattr(schedule.every(), meeting.day) \
-            .at(start_time) \
-            .do(join, meeting)
-
-    logging.info("Added %s meetings to schedule." % len(config.meetings))
-
-
-def join_ongoing_meeting(config: Config):
-    for meeting in config.meetings:
-
-        # Check and join ongoing meeting
-        curr_date = datetime.now()
-
-        # Monday, tuesday, ..
-        if meeting.day.lower() == curr_date.strftime('%A').lower():
-            curr_time = curr_date.time()
-
-            start_time_csv = datetime.strptime(meeting.time, '%H:%M')
-            start_date = curr_date.replace(
-                hour=start_time_csv.hour, minute=start_time_csv.minute)
-            start_time = start_date.time()
-
-            end_date = start_date + timedelta(seconds=int(meeting.duration) * 60 + 300)  # Add 5 minutes
-            end_time = end_date.time()
-
-            recent_duration = (end_date - curr_date).total_seconds()
-
-            if start_time < end_time:
-                if start_time <= curr_time <= end_time:
-                    logging.info(
-                        "Join meeting that is currently running..")
-                    join(meeting)
-            else:  # crosses midnight
-                if curr_time >= start_time or curr_time <= end_time:
-                    logging.info(
-                        "Join meeting that is currently running..")
-                    join(meeting)
-
-
 def main():
     try:
         if DEBUG and not os.path.exists(DEBUG_PATH):
@@ -109,7 +67,6 @@ def main():
 
     config = parse_config(CONFIG_PATH)
     task_manager = TaskManager(config)
-    join_ongoing_meeting(config)
 
     while True:
         task_manager.run()

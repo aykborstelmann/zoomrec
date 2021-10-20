@@ -30,12 +30,13 @@ class Job(ABC):
 
 
 class JoinMeetingJob(Job):
-    def __init__(self, meeting: Meeting):
+    def __init__(self, meeting: Meeting, seconds_remaining=None):
         super().__init__()
         self.meeting = meeting
+        self.seconds_remaining = seconds_remaining if seconds_remaining else self.meeting.duration
 
     def run(self):
-        join(self.meeting)
+        join(self.meeting, self.seconds_remaining)
 
 
 class CompressJob(Job):
@@ -55,11 +56,29 @@ class TaskManager:
         self.queue: List[Job] = []
 
         for meeting in config.meetings:
+            self.append_meeting_if_running(meeting)
+
             start_time = (datetime.strptime(meeting.time, '%H:%M') - timedelta(minutes=1)).strftime('%H:%M')
             getattr(self.scheduler.every(), meeting.day) \
                 .at(start_time) \
                 .do(self.enqueue_meeting_and_follow_up, meeting)
         self.log.info(f"Setup {len(config.meetings)} meeting/s")
+
+    def append_meeting_if_running(self, meeting):
+        current_date = datetime.now()
+        meeting_is_today = meeting.day.lower() == current_date.strftime('%A').lower()
+        if meeting_is_today:
+            start_time_from_config = datetime.strptime(meeting.time, '%H:%M')
+            start_date = current_date.replace(hour=start_time_from_config.hour, minute=start_time_from_config.minute)
+
+            end_date = start_date + timedelta(seconds=int(meeting.duration) * 60)  # Add 5 minutes
+            seconds_remaining = (end_date - current_date).total_seconds()
+
+            meeting_is_running = start_date <= current_date <= end_date
+            if meeting_is_running:
+                logging.info("Join meeting that is currently running..")
+
+                self.queue.append(JoinMeetingJob(meeting, seconds_remaining))
 
     def enqueue_meeting_and_follow_up(self, meeting):
         join_meeting_job = JoinMeetingJob(meeting)

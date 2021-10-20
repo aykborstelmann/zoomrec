@@ -47,11 +47,11 @@ ONGOING_MEETING = False
 VIDEO_PANEL_HIDED = False
 
 
-def join(meeting: Meeting):
+def join(meeting: Meeting, seconds_remaining: float):
     global VIDEO_PANEL_HIDED
     ffmpeg_debug = None
 
-    logging.info("Join meeting: " + meeting.description)
+    logging.info(f"Join meeting {meeting.description} for {seconds_remaining}s")
 
     if DEBUG:
         ffmpeg_debug = start_debug_recording(meeting.description)
@@ -99,7 +99,7 @@ def join(meeting: Meeting):
         return
 
     # Check if connecting
-    check_connecting(zoom.pid, start_date, meeting.duration)
+    check_connecting(zoom.pid, start_date, seconds_remaining)
 
     if not join_by_url:
         pyautogui.write(meeting.password, interval=0.2)
@@ -108,7 +108,7 @@ def join(meeting: Meeting):
 
     # Joined meeting
     # Check if connecting
-    check_connecting(zoom.pid, start_date, meeting.duration)
+    check_connecting(zoom.pid, start_date, seconds_remaining)
 
     # Check if meeting is started by host
     check_periods = 0
@@ -125,7 +125,7 @@ def join(meeting: Meeting):
     # Wait for the host to start this meeting
     # Exit when meeting ends after time
     while not meeting_started:
-        if (datetime.now() - start_date).total_seconds() > meeting.duration * 60:
+        if (datetime.now() - start_date).total_seconds() > seconds_remaining * 60:
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
             kill_process(zoom)
@@ -144,7 +144,7 @@ def join(meeting: Meeting):
         time.sleep(2)
 
     # Check if connecting
-    check_connecting(zoom.pid, start_date, meeting.duration)
+    check_connecting(zoom.pid, start_date, seconds_remaining)
 
     # Check if in waiting room
     check_periods = 0
@@ -161,7 +161,7 @@ def join(meeting: Meeting):
     # Wait while host will let you in
     # Exit when meeting ends after time
     while in_waitingroom:
-        is_meeting_ended = (datetime.now() - start_date).total_seconds() > meeting.duration * 60
+        is_meeting_ended = (datetime.now() - start_date).total_seconds() > seconds_remaining * 60
         if is_meeting_ended:
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
@@ -182,7 +182,7 @@ def join(meeting: Meeting):
 
     # Meeting joined
     # Check if connecting
-    check_connecting(zoom.pid, start_date, meeting.duration)
+    check_connecting(zoom.pid, start_date, seconds_remaining)
 
     logging.info("Joined meeting..")
 
@@ -392,7 +392,9 @@ def join(meeting: Meeting):
     atexit.register(os.killpg, os.getpgid(ffmpeg.pid), signal.SIGQUIT)
 
     start_date = datetime.now()
-    end_date = start_date + timedelta(seconds=(meeting.duration * 60) + 300)  # Add 5 minutes
+    meeting_start_time = datetime.strptime(meeting.time, '%H:%M')
+    start_date.replace(hour=meeting_start_time.hour,minute=meeting_start_time.minute)
+    end_date = start_date + timedelta(seconds=seconds_remaining + 300)  # Add 5 minutes
 
     # Start thread to check active screensharing
     HideViewOptionsThread(description=meeting.description)
@@ -403,7 +405,7 @@ def join(meeting: Meeting):
         if time_remaining.total_seconds() < 0 or not ONGOING_MEETING:
             meeting_running = False
         else:
-            print(f"Meeting ends in {time_remaining}", end="\r", flush=True)
+            logging.debug(f"Meeting ends in {time_remaining}")
         time.sleep(5)
 
     logging.info("Meeting ends at %s" % datetime.now())

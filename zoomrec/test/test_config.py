@@ -1,17 +1,17 @@
 import unittest
 
-from src.config import Config, parse_config, Meeting
+from config import Config, parse_config, Meeting
 
 
 class TestConfig(unittest.TestCase):
 
     def test_default_parse_config(self):
-        config: Config = parse_config("resources/empty_config.yml")
+        config: Config = parse_config("zoomrec/test/resources/empty_config.yml")
         self.assertEqual(False, config.compress)
         self.assertEqual(0, len(config.meetings))
 
     def test_parse_config(self):
-        config: Config = parse_config("resources/config.yml")
+        config: Config = parse_config("zoomrec/test/resources/config.yml")
         self.assertEqual(True, config.compress)
         self.assertEqual(2, len(config.meetings))
 

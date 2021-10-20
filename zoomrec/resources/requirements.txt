@@ -1,0 +1,1 @@
+testresourcespyautoguischedulepsutilopencv-pythonpillow>=8.1.0

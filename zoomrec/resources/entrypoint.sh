@@ -54,4 +54,4 @@ pactl set-source-volume 3 60%
 echo -e "\nStart script.."
 sleep 5
 
-python3 -u ${HOME}/src/zoomrec.py
+python3 -u ${HOME}/zoomrec/zoomrec.py

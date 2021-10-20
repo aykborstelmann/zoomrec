@@ -114,15 +114,14 @@ RUN adduser zoomrec pulse-access
 USER zoomrec
 
 # Add home resources
-COPY res/home/ ${HOME}/
+COPY zoomrec/resources/home/ ${HOME}/
 
 # Add startup
-COPY res/entrypoint.sh ${START_DIR}/entrypoint.sh
-COPY res/xfce.sh ${START_DIR}/xfce.sh
+COPY zoomrec/resources/entrypoint.sh ${START_DIR}/entrypoint.sh
+COPY zoomrec/resources/xfce.sh ${START_DIR}/xfce.sh
 
 # Add python script with resources
-COPY src/ ${HOME}/src
-COPY res/img ${HOME}/img
+COPY zoomrec/ ${HOME}/zoomrec
 
 # Set permissions
 USER 0

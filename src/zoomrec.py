@@ -26,9 +26,9 @@ IMG_PATH = os.path.join(BASE_PATH, "img")
 REC_PATH = os.path.join(BASE_PATH, "recordings")
 DEBUG_PATH = os.path.join(REC_PATH, "screenshots")
 
-formatter = logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+formatter = logging.Formatter("%(asctime)s %(levelname)s %(module)s - %(message)s")
 root_logger = logging.getLogger()
-root_logger.setLevel(logging.DEBUG)
+root_logger.setLevel(logging.INFO)
 
 stream_handler = logging.StreamHandler()
 stream_handler.setFormatter(formatter)

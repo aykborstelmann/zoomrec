@@ -13,7 +13,7 @@ import pyautogui
 
 from config import Meeting
 
-WAIT_AFTER_MEETING = 0
+WAIT_AFTER_MEETING = 2
 
 DEBUG = True if os.getenv('DEBUG') == 'True' else False
 
@@ -49,11 +49,11 @@ ONGOING_MEETING = False
 VIDEO_PANEL_HIDED = False
 
 
-def join(meeting: Meeting, seconds_remaining: float):
+def join(meeting: Meeting):
     global VIDEO_PANEL_HIDED
     ffmpeg_debug = None
 
-    logging.info(f"Join meeting {meeting.description} for {seconds_remaining}s")
+    logging.info(f"Join meeting {meeting.description}")
 
     if DEBUG:
         ffmpeg_debug = start_debug_recording(meeting.description)
@@ -101,7 +101,7 @@ def join(meeting: Meeting, seconds_remaining: float):
         return
 
     # Check if connecting
-    check_connecting(zoom.pid, start_date, seconds_remaining)
+    check_connecting(zoom.pid, start_date, meeting.duration)
 
     if not join_by_url:
         pyautogui.write(meeting.password, interval=0.2)
@@ -110,7 +110,7 @@ def join(meeting: Meeting, seconds_remaining: float):
 
     # Joined meeting
     # Check if connecting
-    check_connecting(zoom.pid, start_date, seconds_remaining)
+    check_connecting(zoom.pid, start_date, meeting.duration)
 
     # Check if meeting is started by host
     check_periods = 0
@@ -127,7 +127,7 @@ def join(meeting: Meeting, seconds_remaining: float):
     # Wait for the host to start this meeting
     # Exit when meeting ends after time
     while not meeting_started:
-        if (datetime.now() - start_date).total_seconds() > seconds_remaining * 60:
+        if (datetime.now() - start_date).total_seconds() > meeting.duration * 60:
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
             kill_process(zoom)
@@ -146,7 +146,7 @@ def join(meeting: Meeting, seconds_remaining: float):
         time.sleep(2)
 
     # Check if connecting
-    check_connecting(zoom.pid, start_date, seconds_remaining)
+    check_connecting(zoom.pid, start_date, meeting.duration)
 
     # Check if in waiting room
     check_periods = 0
@@ -163,7 +163,7 @@ def join(meeting: Meeting, seconds_remaining: float):
     # Wait while host will let you in
     # Exit when meeting ends after time
     while in_waitingroom:
-        is_meeting_ended = (datetime.now() - start_date).total_seconds() > seconds_remaining * 60
+        is_meeting_ended = (datetime.now() - start_date).total_seconds() > meeting.duration * 60
         if is_meeting_ended:
             logging.info("Meeting ended after time!")
             logging.info("Exit Zoom!")
@@ -184,7 +184,7 @@ def join(meeting: Meeting, seconds_remaining: float):
 
     # Meeting joined
     # Check if connecting
-    check_connecting(zoom.pid, start_date, seconds_remaining)
+    check_connecting(zoom.pid, start_date, meeting.duration)
 
     logging.info("Joined meeting..")
 
@@ -228,7 +228,6 @@ def join(meeting: Meeting, seconds_remaining: float):
     BackgroundThread()
 
     # Set computer audio
-    time.sleep(5)
     if not join_audio(meeting.description):
         logging.info("Exit!")
         kill_process(zoom)
@@ -236,7 +235,7 @@ def join(meeting: Meeting, seconds_remaining: float):
             kill_process(ffmpeg_debug)
             atexit.unregister(os.killpg)
         time.sleep(2)
-        join(meeting, seconds_remaining)
+        join(meeting)
 
     # 'Say' something if path available (mounted)
     if os.path.exists(AUDIO_PATH):
@@ -393,10 +392,10 @@ def join(meeting: Meeting, seconds_remaining: float):
 
     atexit.register(os.killpg, os.getpgid(ffmpeg.pid), signal.SIGQUIT)
 
-    start_date = datetime.now()
+    start_date = datetime.today()
     meeting_start_time = datetime.strptime(meeting.time, '%H:%M')
     start_date.replace(hour=meeting_start_time.hour, minute=meeting_start_time.minute)
-    end_date = start_date + timedelta(seconds=seconds_remaining + WAIT_AFTER_MEETING)  # Add 5 minutes
+    end_date = start_date + timedelta(minutes=meeting.duration + WAIT_AFTER_MEETING)  # Add 5 minutes
 
     # Start thread to check active screensharing
     HideViewOptionsThread(description=meeting.description)

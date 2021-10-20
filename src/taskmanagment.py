@@ -32,13 +32,12 @@ class Job(ABC):
 
 
 class JoinMeetingJob(Job):
-    def __init__(self, meeting: Meeting, seconds_remaining=None):
+    def __init__(self, meeting: Meeting):
         super().__init__()
         self.meeting = meeting
-        self.seconds_remaining = seconds_remaining if seconds_remaining else self.meeting.duration
 
     def run(self):
-        return join(self.meeting, self.seconds_remaining)
+        return join(self.meeting)
 
 
 class CompressJob(Job):
@@ -57,6 +56,7 @@ class TaskManager:
         self.scheduler = Scheduler()
         self.config = config
         self.queue: List[Job] = []
+        self.last_log = datetime.fromtimestamp(0)
 
         for meeting in config.meetings:
             self.append_meeting_if_running(meeting)
@@ -74,17 +74,15 @@ class TaskManager:
         if meeting_is_today:
             start_time_from_config = datetime.strptime(meeting.time, '%H:%M')
             start_date = current_date.replace(hour=start_time_from_config.hour, minute=start_time_from_config.minute)
-
             end_date = start_date + timedelta(seconds=int(meeting.duration) * 60)
-            seconds_remaining = (end_date - current_date).total_seconds()
 
             meeting_is_running = start_date <= current_date <= end_date
             if meeting_is_running:
                 logging.info("Join meeting that is currently running..")
-                self.enqueue_meeting_and_follow_up(meeting, seconds_remaining=seconds_remaining)
+                self.enqueue_meeting_and_follow_up(meeting)
 
-    def enqueue_meeting_and_follow_up(self, meeting, seconds_remaining=None):
-        join_meeting_job = JoinMeetingJob(meeting, seconds_remaining)
+    def enqueue_meeting_and_follow_up(self, meeting):
+        join_meeting_job = JoinMeetingJob(meeting)
 
         if self.config.compress:
             def on_success(filename):
@@ -102,7 +100,8 @@ class TaskManager:
             self.log.debug("Queue not empty, executing first job")
             job = self.queue.pop()
             job.start()
-        else:
+        elif datetime.now() - self.last_log > timedelta(minutes=10):
+            self.last_log = datetime.now()
             time_of_next_run = self.scheduler.next_run
             time_now = datetime.now()
             remaining = time_of_next_run - time_now

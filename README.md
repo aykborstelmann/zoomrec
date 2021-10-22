@@ -9,11 +9,7 @@
 
 <p align="center">
   <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/kastldratza/zoomrec">
-  <img alt="GitHub issues" src="https://img.shields.io/github/issues/kastldratza/zoomrec">
-	<a href="https://github.com/kastldratza/zoomrec/actions/workflows/codeql-analysis.yml"><img src="https://github.com/kastldratza/zoomrec/actions/workflows/codeql-analysis.yml/badge.svg" alt="GitHub Workflow Status"></a>
-	<a href="https://github.com/kastldratza/zoomrec/actions/workflows/docker-publish.yml"><img src="https://github.com/kastldratza/zoomrec/actions/workflows/docker-publish.yml/badge.svg" alt="GitHub Workflow Status"></a>
-	<a href="https://github.com/kastldratza/zoomrec/actions/workflows/snyk.yml"><img src="https://github.com/kastldratza/zoomrec/actions/workflows/snyk.yml/badge.svg" alt="GitHub Workflow Status"></a>
-	<a href="https://github.com/kastldratza/zoomrec/actions/workflows/snyk-container-analysis.yml"><img src="https://github.com/kastldratza/zoomrec/actions/workflows/snyk-container-analysis.yml/badge.svg" alt="GitHub Workflow Status"></a>
+  <a href="https://github.com/aykborstelmann/zoomrec/actions/workflows/docker-publish.yml"><img src="https://github.com/aykborstelmann/zoomrec/actions/workflows/docker-publish.yml/badge.svg" alt="GitHub Workflow Status"></a>
 </p>
 
 
@@ -29,6 +25,9 @@
 
 ---
 
+**This project is a further development of https://github.com/kastldratza/zoomrec. 
+Please also have a look at this repo and leave a star.**
+
 ## Installation
 
 The entire mechanism runs in a Docker container. So all you need to do is install Docker and use the image from Registry.
@@ -39,13 +38,13 @@ The entire mechanism runs in a Docker container. So all you need to do is instal
 
 ### Docker Registry
 
-Docker images are build and pushed automatically to [**Docker Hub**](https://hub.docker.com/repository/docker/kastldratza/zoomrec) and [**GitHub Container Registry**](https://github.com/kastldratza/zoomrec/pkgs/container/zoomrec).
+Docker images are build and pushed automatically to [**Docker Hub**](https://hub.docker.com/repository/docker/kyatech/zoomrec) and [**GitHub Container Registry**](https://github.com/aykborstelmann/zoomrec/pkgs/container/zoomrec).
 
 So you can choose and use one of them:
-- ```ghcr.io/kastldratza/zoomrec:master```
-- ```kastldratza/zoomrec:latest```
+- ```ghcr.io/aykborstelmann/zoomrec:master```
+- ```kyatech/zoomrec:latest```
 
-*For my examples in this README I used* ```kastldratza/zoomrec:latest```
+*For my examples in this README I used* ```kyatech/zoomrec:latest```
 
 ---
 
@@ -55,7 +54,7 @@ So you can choose and use one of them:
   - Please check use of paths on different operating systems!
   - Please check permissions for used directory!
 - Container stops when Python script is terminated
-- Zoomrec uses a CSV file with entries of Zoom meetings to record them
+- Zoomrec uses a YML file with entries of Zoom meetings to record them
   - The csv can be passed as seen below (mount as volume or add to docker image)
 - To "say" something after joining a meeting:
   - ***paplay*** (*pulseaudio-utils*) is used to play a sound to a specified microphone output, which is mapped to a microphone input at startup.
@@ -64,18 +63,35 @@ So you can choose and use one of them:
     - does not contain **.wav** files
     - is not mounted properly
 
-### CSV structure
-CSV must be formatted as in example/meetings.csv
-  - Delimiter must be a semicolon "**;**"
-  - Only meetings with flag "**record = true**" are joined and recorded
-  - "**description**" is used for filename when recording
-  - "**duration**" in minutes (+5 minutes to the end)
+### config.yml structure
+* `compress` - if the recorded file should be compressed afterwards
+(withour it is recorded with 0 compression as mkv file - 1 hour ~ 1GB)  
+* `meetings` - array of meeting informations:  
+  * **Must contain**:
+    * `description` - description/name of the meeting used for filenmae
+    * `day` - weekday on which this meeting occurs
+    * `time` - time on which this meeting occurs
+    * `duration` - duration the zoomrec will stay in meeting and record
+  * **Either or**
+    * `link` - link for the meeting
+    * `id` and `password` - id and password of the meeting
 
-weekday | time | duration | id | password | description | record
--------- | -------- | -------- | -------- | -------- | -------- | --------
-monday | 09:55 | 60 | 111111111111 | 741699 | Important_Meeting | true
-monday | 14:00 | 90 | 222222222222 | 321523 | Unimportant_Meeting | false
-tuesday| 17:00 | 90 | https://zoom.us/j/123456789?pwd=abc || Meeting_with_URL | true
+**Example**
+```yml
+compress: true
+meetings:
+  - description: Meeting 1
+    link: https://zoom.us/j/111111111111?pwd=741699
+    day: monday
+    time: '19:22'
+    duration: 5
+  - description: Meeting 2
+    id: 111111111111
+    password: 741699
+    day: monday
+    time: '0:05'
+    duration: 5
+```
 
 ### VNC
 You can connect to zoomrec via vnc and see what is happening.
@@ -100,27 +116,26 @@ chown -R 1000:1000 audio
 
 ### Flags
 #### Set timezone (default: Europe/Berlin)
-```
+```bash
 docker run -d --restart unless-stopped \
   -e TZ=Europe/Berlin \
   -v $(pwd)/recordings:/home/zoomrec/recordings \
-  -v $(pwd)/example/audio:/home/zoomrec/audio \
-  -v $(pwd)/example/meetings.csv:/home/zoomrec/meetings.csv:ro \
+  -v $(pwd)/audio:/home/zoomrec/audio \
+  -v $(pwd)/config.yml:/home/zoomrec/config.yml:ro \
   -p 5901:5901 \
-kastldratza/zoomrec:latest
+kyatech/zoomrec:latest
 ```
 #### Set debugging flag (default: False)
    - screenshot on error
    - record joining
-   - do not exit container on error
-```
+```bash
 docker run -d --restart unless-stopped \
   -e DEBUG=True \
   -v $(pwd)/recordings:/home/zoomrec/recordings \
-  -v $(pwd)/example/audio:/home/zoomrec/audio \
-  -v $(pwd)/example/meetings.csv:/home/zoomrec/meetings.csv:ro \
+  -v $(pwd)/audio:/home/zoomrec/audio \
+  -v $(pwd)/config.yml:/home/zoomrec/config.yml.csv:ro \
   -p 5901:5901 \
-kastldratza/zoomrec:latest
+kyatech/zoomrec:latest
 ```
 
 ### Windows / _cmd_
@@ -128,10 +143,10 @@ kastldratza/zoomrec:latest
 ```cmd
 docker run -d --restart unless-stopped \
   -v %cd%\recordings:/home/zoomrec/recordings \
-  -v %cd%\example\audio:/home/zoomrec/audio \
-  -v %cd%\example\meetings.csv:/home/zoomrec/meetings.csv:ro \
+  -v %cd%\audio:/home/zoomrec/audio \
+  -v %cd%\config.yml:/home/zoomrec/config.yml:ro \
   -p 5901:5901 \
-kastldratza/zoomrec:latest
+kyatech/zoomrec:latest
 ```
 
 ### Windows / _PowerShell_
@@ -139,10 +154,10 @@ kastldratza/zoomrec:latest
 ```powershell
 docker run -d --restart unless-stopped \
   -v ${PWD}/recordings:/home/zoomrec/recordings \
-  -v ${PWD}/example/audio:/home/zoomrec/audio \
-  -v ${PWD}/example/meetings.csv:/home/zoomrec/meetings.csv:ro \
+  -v ${PWD}/audio:/home/zoomrec/audio \
+  -v ${PWD}/config.yml:/home/zoomrec/config.yml:ro \
   -p 5901:5901 \
-kastldratza/zoomrec:latest
+kyatech/zoomrec:latest
 ```
 
 ### Linux / macOS
@@ -150,34 +165,11 @@ kastldratza/zoomrec:latest
 ```bash
 docker run -d --restart unless-stopped \
   -v $(pwd)/recordings:/home/zoomrec/recordings \
-  -v $(pwd)/example/audio:/home/zoomrec/audio \
-  -v $(pwd)/example/meetings.csv:/home/zoomrec/meetings.csv:ro \
+  -v $(pwd)/audio:/home/zoomrec/audio \
+  -v $(pwd)/config.yml:/home/zoomrec/config.yml:ro \
   -p 5901:5901 \
-kastldratza/zoomrec:latest
+kyatech/zoomrec:latest
 ```
-
-## Customization example
-
-### Add meetings.csv to image
-
-```bash
-# Switch to example directory
-cd example
-
-# Build new image by customized Dockerfile
-docker build -t kastldratza/zoomrec-custom:latest .
-
-# Run image without mounting meetings.csv and audio directory
-# Linux
-docker run -d --restart unless-stopped -v $(pwd)/recordings:/home/zoomrec/recordings -p 5901:5901 kastldratza/zoomrec-custom:latest
-
-# Windows / PowerShell
-docker run -d --restart unless-stopped -v ${PWD}/recordings:/home/zoomrec/recordings -p 5901:5901 kastldratza/zoomrec-custom:latest
-
-# Windows / cmd
-docker run -d --restart unless-stopped -v %cd%\recordings:/home/zoomrec/recordings -p 5901:5901 kastldratza/zoomrec-custom:latest
-```
-
 ---
 
 ## Supported actions
@@ -197,39 +189,6 @@ docker run -d --restart unless-stopped -v %cd%\recordings:/home/zoomrec/recordin
 - [x] _This meeting is for authorized attendees only_ / **Leave meeting**
 - [x] Play sound after joining a meeting
 - [x] _Join a Meeting_ from csv with url
-
----
-
-## Roadmap
-- [ ] Refactoring
-- [ ] Create terraform stack to deploy in AWS
-- [ ] _Join a Meeting_ from calendar
-- [ ] _Sign In_ to existing Zoom account
-- [ ] _Join Breakout Room_
-- [ ] Join a meeting and start recording automatically by looking up a calendar
-- [ ] Support to record Google Meet, MS Teams, Cisco WebEx calls too
-- [ ] Ability to monitor recordings sessions in various containers
-
----
-
-## Testing
-
-Create unittests for different use cases:
-- [ ] Join meeting
-- [ ] Start / Stop ffmpeg and check if file was created
-- [ ] ...
-
----
-
-## Support
-Feel free. However, if you want to support me and my work, I have some crypto addresses here.
-
-name | address |
------------- | ------------- |
-Bitcoin (BTC) | <details><summary>show</summary><p><img src="doc/support/bitcoin.png" width="150" /> <br> ```bc1qz2n26d4gq8qjdge9ueeluqut5p0rmv5wjmvnus``` </p></details>
-Ethereum (ETH) | <details><summary>show</summary><p><img src="doc/support/ethereum.png" width="150" /> <br> ```0x984dBf7fb4ab489E33ca004552259484041AeF88``` </p></details>
-Dogecoin (DOGE) | <details><summary>show</summary><p><img src="doc/support/dogecoin.png" width="150" /> <br> ```DHBCESbBPqER83h5E2j6cw6H1QZW8qHtYd``` </p></details>
-Cardano (ADA) | <details><summary>show</summary><p><img src="doc/support/cardano.png" width="150" /> <br> ```addr1q90phcf0qzkx9da8vghtaa04a68gwpat37gvss963r9xfsj7r0sj7q9vv2m6wc3whm6ltm5wsur6hrusepqt4zx2vnpqz307az``` </p></details>
 
 ---
 
